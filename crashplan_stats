@@ -9,6 +9,8 @@
 #
 # Version 1.0.0
 #
+# Known Problems: This will likely not work with backup sets in Crashplan
+#
 #######################################################################################
 
 #
@@ -22,7 +24,7 @@ REVISION="0.1"
 LOG_DIR=/usr/local/crashplan/log
 LOG=history.log.0     
 
-DEST_NODE="CrashPlan Central"
+DEST_DEFAULT="CrashPlan Central"
 
 PROC_CHECK=no
 date2stamp () {
@@ -66,11 +68,12 @@ UNK() {
 }
  
 print_usage() {
-    echo "Usage: $PROGNAME [ -p ] || [ [ -d destination ] [ -l log directory ] -w warn_period -c critical_period ]"
+    echo "Usage: $PROGNAME [ -p ] || [ [ -d destination ] || [ -r destination ] [ -l log directory ] ]"
     echo " "
     echo "-p    : Check to ensure the CrashPlan process is running, if specified all other parameters are ignored"
     echo " "
     echo "-d    : Specify backup destination, defaults to 'CrashPlan Central' if not specified"
+    echo "-r    : Check if running backup goes to this destination, defaults to 'CrashPlan Central' if not specified"
     echo "-l    : Specify log direction, defaults to /usr/local/crashplan/log"
     echo " "
     echo "Example:"
@@ -95,8 +98,15 @@ case "$1" in
         ;;   
     -d | --destination)
         DEST_NODE=`echo ${2} | sed "s/%%/ /g"`
+        [ -z "${2}" ] && DEST_NODE=$DEST_DEFAULT
         shift
         ;;   
+    -r | --running)
+    	DEST_RUNNING=`echo ${2} | sed "s/%%/ /g"`
+    	[ -z "${2}" ] && DEST_RUNNING=$DEST_DEFAULT
+    	RUNNING_CHECK='yes'
+    	shift
+    	;;
     --help|-h)
         print_help
         exit 0
@@ -111,11 +121,21 @@ done
 #
 if [ "$PROC_CHECK" = "yes" ] ; then
    case `ps -ef | grep "\-Dapp=CrashPlanService" | grep -vc grep` in
-        0) CRIT "No CrasnPlan Service is running" ;;
-        1) OK "CrashPlan Service is running" ;;
-        2) WARN "More than 1 CrashPlan service appears to be running" ;;
+        0) echo 0 ;;
+        1) echo 1 ;;
    esac
+   exit 0
 fi
+
+#
+# check if 
+if [ "$RUNNING_CHECK" = "yes" ] ; then
+# TODO: prüfen ob vorher überhaupt ein Backup beendet wurde... bzw das funzt alles nicht.
+	LAST_START=`cat $LOG_DIR/$LOG | grep -o "Starting backup to [[:alnum:]]*" | tail -1 | awk '{print $4}'`
+	[ "$LAST_START" = "$DEST_RUNNING" ] && echo 1 || echo 0
+	exit 1
+fi
+
   
 ###########################################################################
 # Backup Completion Check
