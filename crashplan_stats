@@ -73,7 +73,7 @@ print_usage() {
     echo "-p    : Check to ensure the CrashPlan process is running, if specified all other parameters are ignored"
     echo " "
     echo "-d    : Specify backup destination, defaults to 'CrashPlan Central' if not specified"
-    echo "-r    : Check if running backup goes to this destination, defaults to 'CrashPlan Central' if not specified"
+    echo "-r    : Check if current running backup goes to this destination, defaults to 'CrashPlan Central' if not specified"
     echo "-l    : Specify log direction, defaults to /usr/local/crashplan/log"
     echo " "
     echo "Example:"
@@ -128,11 +128,16 @@ if [ "$PROC_CHECK" = "yes" ] ; then
 fi
 
 #
-# check if 
+# check if asked backup is running right now.
+#
 if [ "$RUNNING_CHECK" = "yes" ] ; then
-# TODO: prüfen ob vorher überhaupt ein Backup beendet wurde... bzw das funzt alles nicht.
-	LAST_START=`cat $LOG_DIR/$LOG | grep -o "Starting backup to [[:alnum:]]*" | tail -1 | awk '{print $4}'`
-	[ "$LAST_START" = "$DEST_RUNNING" ] && echo 1 || echo 0
+	#get all lines that indicate a start or stop of a backup (with grep).
+	#then get only the last line (with tail)
+	LAST_START=`cat $LOG_DIR/$LOG | egrep -o "(Starting|Stopped|Completed) backup to .*" | tail -1`
+	CURRENT_BACKUP=${LAST_START%:*}
+	#if the last line has "Starting backup to" in it and the destination is the same as $DEST_RUNNING, where good.
+	CURRENT_BACKUP=${CURRENT_BACKUP##*Starting backup to }
+	[ "$CURRENT_BACKUP" == "$DEST_RUNNING" ] && echo 1 || echo 0
 	exit 1
 fi
 
